@@ -9,6 +9,7 @@ class WooCommerce_Urb_It_Order extends WooCommerce_Urb_It
 {
     function __construct()
     {
+        parent::__construct();
         add_action('init', array($this, 'register_order_status'));
         add_filter('wc_order_statuses', array($this, 'order_statuses'));
         add_action('woocommerce_checkout_update_order_meta', array($this, 'save_data'), 10, 2);

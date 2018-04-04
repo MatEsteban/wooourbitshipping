@@ -11,6 +11,7 @@ class WooCommerce_Urb_It_Frontend_Checkout extends WooCommerce_Urb_It_Frontend
 
     function __construct()
     {
+        parent::__construct();
         add_action('woocommerce_review_order_after_shipping', array($this, 'fields'));
         add_action('woocommerce_after_checkout_form', array($this, 'add_assets'));
         add_action('woocommerce_before_checkout_form', array($this, 'notice_checkout'));
@@ -46,6 +47,7 @@ class WooCommerce_Urb_It_Frontend_Checkout extends WooCommerce_Urb_It_Frontend
             $delivery_time = get_option(self::SETTINGS_PREFIX . $environment . '_delivery_time');
         else {
             $now_offset = $this->create_date($this->now_offset());
+            $order->add_order_note(sprintf(__('Urb-it delivery time: %s', self::LANG), $now_offset));
             $delivery_time = $now_offset->getTimestamp();
             $now_offset->sub(new DateInterval(self::STD_PROCESS_TIME));
             update_option(self::SETTINGS_PREFIX . $environment . '_delivery_time_' . $order_id, date('c', $delivery_time));

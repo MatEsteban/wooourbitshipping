@@ -19,7 +19,7 @@ class WooCommerce_Urb_It_Frontend_Checkout extends WooCommerce_Urb_It_Frontend
         add_action('woocommerce_review_order_after_shipping', array($this, 'notice_checkout_shipping'));
         add_action('woocommerce_after_checkout_validation', array($this, 'validate_form'));
         add_action('woocommerce_after_checkout_form', array($this, 'sync_cart'));
-        add_action('woocommerce_thankyou', array($this, 'sync_checkout'));
+        add_action('woocommerce_checkout_order_processed', array($this, 'sync_checkout'));
         add_action('preparation_time', array($this, 'send_order'), 10, 5);
         add_filter('woocommerce_shipping_packages', array($this, 'check_urbit_now_availability'), 100, 1);
     }
@@ -47,7 +47,7 @@ class WooCommerce_Urb_It_Frontend_Checkout extends WooCommerce_Urb_It_Frontend
             $delivery_time = get_option(self::SETTINGS_PREFIX . $environment . '_delivery_time');
         else {
             $now_offset = $this->create_date($this->now_offset());
-            $order->add_order_note(sprintf(__('Urb-it delivery time: %s', self::LANG), $now_offset));
+            $order->add_order_note(sprintf(__('Urb-it delivery time: %s', self::LANG), $now_offset->format('Y-m-d\TH:i:s')));
             $delivery_time = $now_offset->getTimestamp();
             $now_offset->sub(new DateInterval(self::STD_PROCESS_TIME));
             update_option(self::SETTINGS_PREFIX . $environment . '_delivery_time_' . $order_id, date('c', $delivery_time));
@@ -189,10 +189,10 @@ class WooCommerce_Urb_It_Frontend_Checkout extends WooCommerce_Urb_It_Frontend
                 && !in_array('urb_it_specific_time', $posted['shipping_method'])))
             return;
 
-        $phone = $this->sanitize_phone($posted['billing_phone']);
+        $phone = $posted['billing_phone'];
 
-        if (!$phone)
-            throw new Exception(__('Please enter a valid cellphone number.', self::LANG));
+        if (!$phone || !preg_match('/^\+[1-9]\d{6,}$/', $phone))
+            throw new Exception(__('Please enter a valid cellphone number. Like +600000000', self::LANG));
 
         if (in_array('urb_it_specific_time', $posted['shipping_method'])) {
             $valid_time = true;

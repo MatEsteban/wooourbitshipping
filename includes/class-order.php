@@ -77,7 +77,7 @@ class WooCommerce_Urb_It_Order extends WooCommerce_Urb_It
     {
         $shipping_method = $order->get_shipping_method();
 
-        if ($shipping_method == 'urb-it now' && 'wc-' . $status_to == get_option(self::SETTINGS_PREFIX . 'now_status')) {
+        if (($shipping_method == 'urb-it now' || $shipping_method == 'urb-it specific time') && 'wc-' . $status_to == get_option(self::SETTINGS_PREFIX . 'now_status')) {
             $environment = get_option(self::SETTINGS_PREFIX . 'environment');
             $delivery_time = get_option(self::SETTINGS_PREFIX . $environment . '_delivery_time_' . $order_id);
             if (!$delivery_time) {
@@ -98,12 +98,12 @@ class WooCommerce_Urb_It_Order extends WooCommerce_Urb_It
 
             $checkout_id = get_option(self::SETTINGS_PREFIX . $environment . '_checkout_id_' . $order_id);
 
-            $this->validate->order($delivery_time, $order->message, $recipient, $checkout_id);
+            $this->validate->order($delivery_time, $order->get_meta('message'), $recipient, $checkout_id);
 
             // Clean order actions and info
             $timestamp = new DateTime($delivery_time);
             $timestamp->sub(new DateInterval(self::STD_PROCESS_TIME));
-            wp_unschedule_event($timestamp->getTimestamp(), 'preparation_time', array($delivery_time, $order->message, $recipient, $checkout_id, $order_id));
+            wp_unschedule_event($timestamp->getTimestamp(), 'preparation_time', array($delivery_time, $order->get_meta('message'), $recipient, $checkout_id, $order_id));
             delete_option( self::SETTINGS_PREFIX . $environment . '_checkout_id_' . $order_id );
             delete_option( self::SETTINGS_PREFIX . $environment . '_delivery_time_' . $order_id );
         }

@@ -31,6 +31,7 @@ class WooCommerce_Urb_It_Frontend_Checkout extends WooCommerce_Urb_It_Frontend
         $order = new WC_Order($order_id);
         update_option(self::SETTINGS_PREFIX . $environment . '_checkout_id_' . $order_id, $checkout_id);
         $message = $order->get_customer_note();
+        $delivery_time = null;
 
         $recipient = array(
             'first_name' => $order->get_shipping_first_name(),
@@ -43,19 +44,14 @@ class WooCommerce_Urb_It_Frontend_Checkout extends WooCommerce_Urb_It_Frontend
             'email' => $order->get_billing_email(),
         );
 
-        if ($order->get_shipping_method() != 'urb-it now')
-            $delivery_time = get_option(self::SETTINGS_PREFIX . $environment . '_delivery_time');
-        else {
-            $now_offset = $this->create_date($this->now_offset());
-            $order->add_order_note(sprintf(__('Urb-it delivery time: %s', self::LANG), $now_offset->format('Y-m-d\TH:i:s')));
-            $delivery_time = $now_offset->getTimestamp();
-            $now_offset->sub(new DateInterval(self::STD_PROCESS_TIME));
-            update_option(self::SETTINGS_PREFIX . $environment . '_delivery_time_' . $order_id, date('c', $delivery_time));
-            wp_schedule_single_event($now_offset->getTimestamp(), 'preparation_time', array(date('c', $delivery_time), $message, $recipient, $checkout_id, $order_id));
-            return;
-        }
+        $now_offset = $this->create_date($this->now_offset());
+        $cron_time = $this->create_date($this->now_offset())->sub(new DateInterval(self::STD_PROCESS_TIME));
 
-        $this->validate->order($delivery_time, $message, $recipient, $checkout_id);
+        $delivery_time = $order->get_shipping_method() != 'urb-it now' ?
+            new DateTime(get_option(self::SETTINGS_PREFIX . $environment . '_delivery_time')) : $now_offset;
+
+        wp_schedule_single_event($cron_time, 'preparation_time', array(date('c', $delivery_time->getTimestamp()), $message, $recipient, $checkout_id, $order_id));
+        update_option(self::SETTINGS_PREFIX . $environment . '_delivery_time_' . $order_id, date('c', $delivery_time->getTimestamp()));
     }
 
     /**

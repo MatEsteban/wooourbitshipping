@@ -42,8 +42,9 @@ class WooCommerce_Urb_It
 
     const DATE_FORMAT = DateTime::ATOM;
 
-    const STD_PROCESS_TIME = 'PT1H30M';
+    const STD_PROCESS_TIME = 'PT1H30M'; // in DateInterval format
     const DEFAULT_PREPARE_TIME = '30'; // in minutes
+    const SPECIFIC_TIME_ADD = 'PT15M'; // in minutes
 
     protected static $_instance;
 
@@ -59,10 +60,16 @@ class WooCommerce_Urb_It
 
     protected $update_checker;
 
+    protected $path = __DIR__ . "/";
+
     protected $country_codes = array(
-        '46',
-        '33',
-        '44',
+        '46',  // Sweden
+        '33',  // France
+    );
+
+    protected $mobile_prefixes = array(
+        '07', // Generic
+        '06'  // France
     );
 
     /**
@@ -74,46 +81,35 @@ class WooCommerce_Urb_It
     {
         if (self::$_instance === null) {
             self::$_instance =
-                include WOOCOMMERCE_URB_IT_PLUGIN_ROOT . '/includes/class-' . (is_admin() ? 'admin' : 'frontend')
+                include_once WOOCOMMERCE_URB_IT_PLUGIN_ROOT . '/includes/class-' . (is_admin() ? 'admin' : 'frontend')
                     . '.php';
 
             self::$_modules = array(
-                'order'         => include(WOOCOMMERCE_URB_IT_PLUGIN_ROOT . '/includes/class-order.php'),
-                'validate'      => include(WOOCOMMERCE_URB_IT_PLUGIN_ROOT . '/includes/class-validate.php'),
-                'opening_hours' => include(WOOCOMMERCE_URB_IT_PLUGIN_ROOT . '/includes/class-opening-hours.php'),
-                'coupon'        => include(WOOCOMMERCE_URB_IT_PLUGIN_ROOT . '/includes/class-coupon.php'),
+                'order'         => include_once(WOOCOMMERCE_URB_IT_PLUGIN_ROOT . '/includes/class-order.php'),
+                'validate'      => include_once(WOOCOMMERCE_URB_IT_PLUGIN_ROOT . '/includes/class-validate.php'),
+                'opening_hours' => include_once(WOOCOMMERCE_URB_IT_PLUGIN_ROOT . '/includes/class-opening-hours.php'),
+                'coupon'        => include_once(WOOCOMMERCE_URB_IT_PLUGIN_ROOT . '/includes/class-coupon.php'),
             );
         }
 
         return self::$_instance;
     }
 
-    /**
-     * WooCommerce_Urb_It constructor.
-     */
     function __construct()
     {
-        // Installation & plugin removal
         register_activation_hook(__FILE__, array(__CLASS__, 'install'));
         register_uninstall_hook(__FILE__, array(__CLASS__, 'uninstall'));
 
-        // Update checker
         require_once $this->path . 'includes/plugin-update-checker/plugin-update-checker.php';
 
         $this->update_checker = PucFactory::buildUpdateChecker(self::UPDATE_URL, __FILE__);
         $this->environment = get_option(self::SETTINGS_PREFIX . 'environment');
 
-        // Load text domain
         add_action('plugins_loaded', array($this, 'load_textdomain'));
-
-        // Add shipping methods
         add_action('woocommerce_shipping_init', array($this, 'shipping_init'));
         add_filter('woocommerce_shipping_methods', array($this, 'add_shipping_method'));
-
-        // Widget
         add_action('widgets_init', array($this, 'register_widget'));
-
-        add_filter('woocommerce_order_button_html', array($this, 'woocommerce_order_confirm'), 99);
+        // add_filter('woocommerce_order_button_html', array($this, 'woocommerce_order_confirm'), 99);
     }
 
     /**
@@ -148,7 +144,7 @@ class WooCommerce_Urb_It
         return $this->{$name};
     }
 
-    function woocommerce_order_confirm($input_submit)
+    /*function woocommerce_order_confirm($input_submit)
     {
         $order_button_text = explode('"', explode('value=', $input_submit)[1])[1];
         $confirm_button = '<div id="order_confirmation" class="button alt">' . esc_attr($order_button_text) . '</div>';
@@ -162,7 +158,7 @@ class WooCommerce_Urb_It
         }
 
         return $input_submit;
-    }
+    }*/
 
     /**
      * @param string $name
@@ -172,9 +168,8 @@ class WooCommerce_Urb_It
      */
     function setting($name, $raw = false)
     {
-        if (!$raw && in_array($name, array('x_api_key', 'bearer_token'), true)) {
+        if (!$raw && in_array($name, array('x_api_key', 'bearer_token'), true))
             $name = $this->environment . '_' . $name;
-        }
 
         return get_option(self::SETTINGS_PREFIX . $name);
     }
@@ -187,29 +182,18 @@ class WooCommerce_Urb_It
         return get_option(self::SETTINGS_PREFIX . 'now_validation_time');
     }
 
-    function create_date($minutes) {
+    function create_date($minutes)
+    {
         $now = new DateTime();
+
         if (empty($minutes)) {
             $minutes = self::DEFAULT_PREPARE_TIME;
             $this->log('Preparation time is not set by admin. Using default value instead: ' . $minutes);
         }
+
         $delivery_time = $now->add(new DateInterval('PT' . $minutes . 'M'));
 
         return $delivery_time->add(new DateInterval(self::STD_PROCESS_TIME));
-    }
-
-    /**
-     * @param bool $with_margin
-     *
-     * @return mixed
-     */
-    function specific_time_offset($with_margin = true)
-    {
-        return apply_filters(
-            'woocommerce_urb_it_specific_time_offset',
-            ($with_margin ? '+1 hour 15 min' : '+1 hour 5 min'),
-            $with_margin
-        );
     }
 
     /**
@@ -373,7 +357,7 @@ class WooCommerce_Urb_It
         }
     }
 
-    /**
+     /**
      * Sanitize phone number to the format "0701234567"
      *
      * @param string $phone
@@ -382,20 +366,11 @@ class WooCommerce_Urb_It
      */
     function sanitize_phone($phone)
     {
-        $phone = str_replace(' ', '', $phone);
-        switch (substr($phone, 0, 1)) {
-            case '+':
-                if (!in_array(substr($phone, 1, 2), $this->country_codes)) return false;
-                return preg_match('/^[1-9]\d( ?\d){5,10}$/', substr($phone, 3)) ? $phone : false;
-                break;
-            case '0':
-                return preg_match('/^0[1-9]\d( ?\d){5,10}$/', $phone) ? $phone : false;
-                break;
-            default:
-                return false;
-                break;
-        }
+        $phone = preg_replace(array('/\D/', '/^(00)?(' . implode('|', $this->country_codes) . ')0?/'), array('', '0'), $phone);
+        if(!in_array(substr($phone, 0, 2), $this->mobile_prefixes) || strlen($phone) !== 10) return false;
+        return $phone;
     }
+
 
     /**
      * @return bool

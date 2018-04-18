@@ -1,5 +1,4 @@
 <?php
-
 // Exit if accessed directly
 if (!defined('ABSPATH')) {
     exit;
@@ -9,10 +8,10 @@ class WooCommerce_Urb_It_Validate extends WooCommerce_Urb_It
 {
     function __construct()
     {
-        parent::__construct();
-        // $this->plugin = WooCommerce_Urb_It::instance();
+        #$this->plugin = WooCommerce_Urb_It::instance();
     }
 
+    // Validate: Product weight
     function product_weight($product)
     {
         if (wc_get_weight($product->get_weight(), 'kg') > self::ORDER_MAX_WEIGHT) {
@@ -31,6 +30,7 @@ class WooCommerce_Urb_It_Validate extends WooCommerce_Urb_It
         return $valid;
     }
 
+    // Validate: Product volume
     function product_volume($product)
     {
         if (wc_get_dimension((int)$product->get_length(), 'cm') * wc_get_dimension((int)$product->get_width(),
@@ -50,6 +50,7 @@ class WooCommerce_Urb_It_Validate extends WooCommerce_Urb_It
         return $valid;
     }
 
+    // Validate: Cart weight
     function cart_weight()
     {
         if (wc_get_weight(wc()->cart->cart_contents_weight, 'kg') > self::ORDER_MAX_WEIGHT) {
@@ -68,6 +69,7 @@ class WooCommerce_Urb_It_Validate extends WooCommerce_Urb_It
         return $valid;
     }
 
+    // Validate: Cart volume
     function cart_volume()
     {
         $total_volume = 0;
@@ -96,6 +98,7 @@ class WooCommerce_Urb_It_Validate extends WooCommerce_Urb_It
         return $valid;
     }
 
+    // Validate: Cart bulkiness
     function cart_bulkiness()
     {
         foreach (wc()->cart->get_cart() as $item) {
@@ -111,6 +114,7 @@ class WooCommerce_Urb_It_Validate extends WooCommerce_Urb_It
         return true;
     }
 
+    // Validate: Opening hours
     function opening_hours($delivery_time)
     {
         $days = $this->opening_hours->get();
@@ -130,6 +134,7 @@ class WooCommerce_Urb_It_Validate extends WooCommerce_Urb_It
         return false;
     }
 
+    // Validate: Urbit
     function order($delivery_time, $message = '', $recipient, $checkout_id)
     {
         $order_data = array(
